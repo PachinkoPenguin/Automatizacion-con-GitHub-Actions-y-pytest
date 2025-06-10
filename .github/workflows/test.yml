@@ -1,0 +1,58 @@
+name: Pruebas Automatizadas del Triángulo
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, '3.10', '3.11', '3.12']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configurar Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -e .
+    
+    - name: Ejecutar pruebas con pytest
+      run: |
+        pytest tests/ -v --tb=short
+    
+    - name: Ejecutar pruebas con cobertura
+      run: |
+        pytest tests/ --cov=src --cov-report=term-missing --cov-report=xml
+    
+    - name: Ejecutar script de demostración
+      run: |
+        python scripts/demo_validation.py
+    
+    - name: Verificar que todas las pruebas específicas pasen
+      run: |
+        echo "Ejecutando pruebas específicas requeridas..."
+        pytest tests/test_triangle_calculator.py::TestTriangleCalculator::test_area_calculation_base_5_height_7 -v
+        pytest tests/test_triangle_calculator.py::TestTriangleCalculator::test_negative_base_not_accepted -v
+        pytest tests/test_triangle_calculator.py::TestTriangleCalculator::test_negative_height_not_accepted -v
+        pytest tests/test_triangle_calculator.py::TestTriangleCalculator::test_zero_base_not_accepted -v
+    
+    - name: Subir reporte de cobertura a Codecov
+      if: matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
